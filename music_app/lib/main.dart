@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'providers/audio_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/playlist_provider.dart';
+import 'services/audio_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -170,6 +170,7 @@ class PlaylistScreen extends StatelessWidget {
                           .indexOf(playlist.songs[index]);
                       audioProvider.playSong(songIndex);
                     },
+                    index: index,
                   );
                 },
               ),

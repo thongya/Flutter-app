@@ -23,6 +23,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _isScanning = false;
+  int _scannedFiles = 0;
+  int _totalFiles = 0;
 
   @override
   void initState() {
@@ -31,17 +34,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _scanSongs() async {
-    final songs = await AudioScanner.scanDevice();
-    if (mounted) {
-      context.read<AudioProvider>().setSongs(songs);
+    setState(() {
+      _isScanning = true;
+      _scannedFiles = 0;
+      _totalFiles = 0;
+    });
+
+    try {
+      final songs = await AudioScanner.scanDeviceWithProgress(
+        onProgress: (scanned, total) {
+          setState(() {
+            _scannedFiles = scanned;
+            _totalFiles = total;
+          });
+        },
+      );
+
+      if (mounted) {
+        context.read<AudioProvider>().setSongs(songs);
+        setState(() => _isScanning = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isScanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error scanning songs: $e')),
+        );
+      }
     }
   }
 
   void _onSongTap(int index) {
-    context.read<AudioProvider>().playSong(index);
+    final audioProvider = context.read<AudioProvider>();
+
+    // Play the selected song
+    audioProvider.playSong(index);
+
+    // Use push instead of pushReplacement to avoid navigation issues
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const PlayerScreen()),
+      MaterialPageRoute(
+        builder: (context) => const PlayerScreen(), // Remove the key to allow normal rebuild
+      ),
     );
   }
 
@@ -187,6 +221,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildContent() {
+    if (_isScanning) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Scanning songs... $_scannedFiles/${_totalFiles > 0 ? _totalFiles : ''}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
     final audioProvider = context.watch<AudioProvider>();
 
     switch (_currentIndex) {
@@ -202,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSongsList(List<dynamic> songs) {
-    if (songs.isEmpty) {
+    if (songs.isEmpty && !_isScanning) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -233,6 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return SongTile(
           song: songs[index],
           onTap: () => _onSongTap(index),
+          index: index,
         );
       },
     );

@@ -62,7 +62,7 @@ class _SearchScreenState extends State<SearchScreen> {
               controller: _searchController,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'Search songs, artists, albums...',
+                hintText: ' Search songs, artists, albums...',
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 16),
               ),
@@ -97,6 +97,7 @@ class _SearchScreenState extends State<SearchScreen> {
             final songIndex = audioProvider.songs.indexOf(_filteredSongs[index]);
             audioProvider.playSong(songIndex);
           },
+          index: index,
         );
       },
     );

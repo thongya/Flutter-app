@@ -1,5 +1,4 @@
 // lib/screens/player_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/audio_provider.dart';
@@ -7,13 +6,16 @@ import '../widgets/player_controls.dart';
 import 'equalizer_screen.dart';
 import 'package:just_audio/just_audio.dart';
 
-class PlayerScreen extends StatelessWidget {
-  const PlayerScreen({super.key});
+class PlayerScreen extends StatefulWidget {
+  const PlayerScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
+  State<PlayerScreen> createState() => _PlayerScreenState();
+}
 
+class _PlayerScreenState extends State<PlayerScreen> {
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -36,22 +38,44 @@ class PlayerScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildAlbumArt(context),
-          _buildSongInfo(context),
-          _buildProgressSlider(context),
-          _buildPlayerControls(context),
-          _buildAdditionalControls(context),
-        ],
+      body: Consumer<AudioProvider>(
+        builder: (context, audioProvider, child) {
+          // This ensures we rebuild when the current song changes
+          final currentSong = audioProvider.currentSong;
+
+          // Print for debugging
+          print('Building PlayerScreen with song: ${currentSong?.title}');
+
+          if (currentSong == null) {
+            return const Center(child: Text('No song selected'));
+          }
+
+          return Column(
+            children: [
+              _buildAlbumArt(context, currentSong),
+              _buildSongInfo(context, currentSong),
+              _buildProgressSlider(context, audioProvider),
+              _buildPlayerControls(context),
+              _buildAdditionalControls(context, audioProvider),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildAlbumArt(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
-    final song = audioProvider.currentSong;
+  Widget _buildDefaultAlbumArt(BuildContext context) {
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      child: Icon(
+        Icons.music_note,
+        size: 100,
+        color: Theme.of(context).primaryColor,
+      ),
+    );
+  }
 
+  Widget _buildAlbumArt(BuildContext context, dynamic currentSong) {
     return Container(
       height: 300,
       margin: const EdgeInsets.all(32),
@@ -69,12 +93,16 @@ class PlayerScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           color: Theme.of(context).primaryColor.withOpacity(0.1),
-          child: song?.albumArt != null
+          child: currentSong?.albumArt != null
               ? Image.network(
-            song!.albumArt!,
+            currentSong!.albumArt!,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) =>
                 _buildDefaultAlbumArt(context),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildDefaultAlbumArt(context);
+            },
           )
               : _buildDefaultAlbumArt(context),
         ),
@@ -82,24 +110,13 @@ class PlayerScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDefaultAlbumArt(BuildContext context) {
-    return Icon(
-      Icons.music_note,
-      size: 100,
-      color: Theme.of(context).primaryColor,
-    );
-  }
-
-  Widget _buildSongInfo(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
-    final song = audioProvider.currentSong;
-
+  Widget _buildSongInfo(BuildContext context, dynamic currentSong) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           Text(
-            song?.title ?? 'Unknown Title',
+            currentSong?.title ?? 'Unknown Title',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -109,15 +126,15 @@ class PlayerScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            song?.artist ?? 'Unknown Artist',
+            currentSong?.artist ?? 'Unknown Artist',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Theme.of(context).textTheme.bodySmall?.color,
             ),
             textAlign: TextAlign.center,
           ),
-          if (song?.album != null && song!.album.isNotEmpty)
+          if (currentSong?.album != null && currentSong!.album.isNotEmpty)
             Text(
-              song.album,
+              currentSong.album,
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
@@ -126,9 +143,7 @@ class PlayerScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressSlider(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
-
+  Widget _buildProgressSlider(BuildContext context, AudioProvider audioProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
@@ -172,9 +187,7 @@ class PlayerScreen extends StatelessWidget {
     return const PlayerControls();
   }
 
-  Widget _buildAdditionalControls(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
-
+  Widget _buildAdditionalControls(BuildContext context, AudioProvider audioProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(

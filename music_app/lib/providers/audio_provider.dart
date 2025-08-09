@@ -1,6 +1,7 @@
 // ib/providers/audio_provider.dart
 import 'dart:async';
 import 'dart:math';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
@@ -12,7 +13,7 @@ class AudioProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
 
   List<Song> _songs = [];
-  final List<Song> _recentlyPlayed = [];
+  List<Song> _recentlyPlayed = [];
   Song? _currentSong;
   int _currentIndex = 0;
   bool _isPlaying = false;
@@ -70,7 +71,7 @@ class AudioProvider with ChangeNotifier {
         _currentSong = _songs[index];
         _addToRecentlyPlayed(_currentSong!);
         _notificationService.showNotification(_currentSong!);
-        notifyListeners();
+        notifyListeners(); // Make sure this is called
       }
     });
   }
@@ -81,20 +82,27 @@ class AudioProvider with ChangeNotifier {
   }
 
   Future<void> playSong(int index) async {
+    print('playSong called with index: $index');
     if (index >= 0 && index < _songs.length) {
+      print('Playing song: ${_songs[index].title}');
       _currentIndex = index;
       _currentSong = _songs[index];
 
       try {
+        await _audioPlayer.stop();
         await _audioPlayer.setAudioSource(
           AudioSource.uri(Uri.parse(_currentSong!.path)),
         );
         await _audioPlayer.play();
+
         _addToRecentlyPlayed(_currentSong!);
-        _notificationService.showNotification(_currentSong!);
+        notifyListeners();
+        print('Successfully started playing: ${_currentSong!.title}');
       } catch (e) {
-        print('Error playing song: $e');
+        print('Error playing song at index $index: $e');
       }
+    } else {
+      print('Invalid index: $index, songs length: ${_songs.length}');
     }
   }
 
@@ -102,8 +110,14 @@ class AudioProvider with ChangeNotifier {
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
-      await _audioPlayer.play();
+      if (_currentSong != null) {
+        await _audioPlayer.play();
+      } else if (_songs.isNotEmpty) {
+        // If no song is currently playing, start with the first song
+        await playSong(0);
+      }
     }
+    notifyListeners();
   }
 
   Future<void> playNext() async {
@@ -118,7 +132,39 @@ class AudioProvider with ChangeNotifier {
 
   Future<void> playPrevious() async {
     final previousIndex = (_currentIndex - 1) % _songs.length;
-    await playSong(previousIndex);
+    if (previousIndex < 0) {
+      await playSong(_songs.length - 1);
+    } else {
+      await playSong(previousIndex);
+    }
+  }
+  Future<void> playSongWithBackground(int index) async {
+    if (index >= 0 && index < _songs.length) {
+      _currentIndex = index;
+      _currentSong = _songs[index];
+
+      try {
+        // Create media item for notification
+        final mediaItem = MediaItem(
+          id: _currentSong!.path,
+          album: _currentSong!.album,
+          title: _currentSong!.title,
+          artist: _currentSong!.artist,
+        );
+
+        // Play using local player for immediate UI response
+        await _audioPlayer.stop();
+        await _audioPlayer.setAudioSource(
+          AudioSource.uri(Uri.parse(_currentSong!.path)),
+        );
+        await _audioPlayer.play();
+
+        _addToRecentlyPlayed(_currentSong!);
+        notifyListeners();
+      } catch (e) {
+        print('Error playing song: $e');
+      }
+    }
   }
 
   Future<void> seekTo(Duration position) async {
@@ -176,7 +222,12 @@ class AudioProvider with ChangeNotifier {
   @override
   void dispose() {
     _sleepTimer?.cancel();
-    _audioPlayer.dispose();
+    // _audioPlayer.dispose();
     super.dispose();
   }
+}
+
+void handleAppLifecycle() {
+  // Don't stop playback when app goes to background
+  // The audio service will handle background playback
 }
