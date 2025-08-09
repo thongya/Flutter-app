@@ -1,13 +1,13 @@
 // lib/main.dart
+// token - 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
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:audio_service/audio_service.dart';
 import 'screens/home_screen.dart';
 import 'providers/audio_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/playlist_provider.dart';
-import 'services/audio_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

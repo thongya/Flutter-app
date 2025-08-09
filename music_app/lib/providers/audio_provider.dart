@@ -1,7 +1,6 @@
-// ib/providers/audio_provider.dart
+// lib/providers/audio_provider.dart
 import 'dart:async';
 import 'dart:math';
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
@@ -25,6 +24,7 @@ class AudioProvider with ChangeNotifier {
   Timer? _sleepTimer;
   double _volume = 1.0;
   List<double> _equalizerSettings = List.filled(10, 0.0);
+  bool _playlistNeedsUpdate = true;
 
   // Getters
   List<Song> get songs => _songs;
@@ -71,13 +71,14 @@ class AudioProvider with ChangeNotifier {
         _currentSong = _songs[index];
         _addToRecentlyPlayed(_currentSong!);
         _notificationService.showNotification(_currentSong!);
-        notifyListeners(); // Make sure this is called
+        notifyListeners();
       }
     });
   }
 
   void setSongs(List<Song> songs) {
     _songs = songs;
+    _playlistNeedsUpdate = true;
     notifyListeners();
   }
 
@@ -85,19 +86,28 @@ class AudioProvider with ChangeNotifier {
     print('playSong called with index: $index');
     if (index >= 0 && index < _songs.length) {
       print('Playing song: ${_songs[index].title}');
-      _currentIndex = index;
-      _currentSong = _songs[index];
 
       try {
-        await _audioPlayer.stop();
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(Uri.parse(_currentSong!.path)),
-        );
-        await _audioPlayer.play();
+        // Update playlist if needed
+        if (_playlistNeedsUpdate) {
+          final playlist = ConcatenatingAudioSource(
+            children: _songs.map((song) => AudioSource.uri(Uri.parse(song.path))).toList(),
+          );
+          await _audioPlayer.setAudioSource(
+            playlist,
+            initialIndex: index,
+            initialPosition: Duration.zero,
+          );
+          _playlistNeedsUpdate = false;
+        } else {
+          // If playlist is already set, just seek to the song
+          await _audioPlayer.seek(Duration.zero, index: index);
+        }
 
-        _addToRecentlyPlayed(_currentSong!);
+        await _audioPlayer.play();
+        _addToRecentlyPlayed(_songs[index]);
         notifyListeners();
-        print('Successfully started playing: ${_currentSong!.title}');
+        print('Successfully started playing: ${_songs[index].title}');
       } catch (e) {
         print('Error playing song at index $index: $e');
       }
@@ -136,34 +146,6 @@ class AudioProvider with ChangeNotifier {
       await playSong(_songs.length - 1);
     } else {
       await playSong(previousIndex);
-    }
-  }
-  Future<void> playSongWithBackground(int index) async {
-    if (index >= 0 && index < _songs.length) {
-      _currentIndex = index;
-      _currentSong = _songs[index];
-
-      try {
-        // Create media item for notification
-        final mediaItem = MediaItem(
-          id: _currentSong!.path,
-          album: _currentSong!.album,
-          title: _currentSong!.title,
-          artist: _currentSong!.artist,
-        );
-
-        // Play using local player for immediate UI response
-        await _audioPlayer.stop();
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(Uri.parse(_currentSong!.path)),
-        );
-        await _audioPlayer.play();
-
-        _addToRecentlyPlayed(_currentSong!);
-        notifyListeners();
-      } catch (e) {
-        print('Error playing song: $e');
-      }
     }
   }
 
@@ -222,7 +204,7 @@ class AudioProvider with ChangeNotifier {
   @override
   void dispose() {
     _sleepTimer?.cancel();
-    // _audioPlayer.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
