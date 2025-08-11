@@ -2,9 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/audio_provider.dart';
-import '../widgets/player_controls.dart';
+import '../widgets/sleep_timer_dialog.dart';
 import 'equalizer_screen.dart';
-import 'package:just_audio/just_audio.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({Key? key}) : super(key: key);
@@ -36,15 +35,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.timer),
+            onPressed: () => _showSleepTimerDialog(context),
+          ),
         ],
       ),
       body: Consumer<AudioProvider>(
         builder: (context, audioProvider, child) {
-          // This ensures we rebuild when the current song changes
           final currentSong = audioProvider.currentSong;
-
-          // Print for debugging
-          print('Building PlayerScreen with song: ${currentSong?.title}');
 
           if (currentSong == null) {
             return const Center(child: Text('No song selected'));
@@ -55,8 +54,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               _buildAlbumArt(context, currentSong),
               _buildSongInfo(context, currentSong),
               _buildProgressSlider(context, audioProvider),
-              _buildPlayerControls(context),
-              _buildAdditionalControls(context, audioProvider),
+              _buildPlayerControls(context, audioProvider),
+              // _buildVolumeControl(context, audioProvider),
             ],
           );
         },
@@ -183,38 +182,71 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildPlayerControls(BuildContext context) {
-    return const PlayerControls();
-  }
-
-  Widget _buildAdditionalControls(BuildContext context, AudioProvider audioProvider) {
+  Widget _buildPlayerControls(BuildContext context, AudioProvider audioProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
+          // Previous button with shuffle
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.shuffle,
+                  color: audioProvider.isShuffle
+                      ? Theme.of(context).primaryColor
+                      : Theme.of(context).iconTheme.color,
+                ),
+                onPressed: audioProvider.toggleShuffle,
+              ),
+              IconButton(
+                icon: const Icon(Icons.skip_previous),
+                iconSize: 48,
+                onPressed: audioProvider.playPrevious,
+              ),
+            ],
+          ),
+
+          // Play/Pause button
           IconButton(
             icon: Icon(
-              Icons.shuffle,
-              color: audioProvider.isShuffle
-                  ? Theme.of(context).primaryColor
-                  : null,
+              audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
             ),
-            onPressed: audioProvider.toggleShuffle,
+            iconSize: 64,
+            onPressed: audioProvider.togglePlayPause,
           ),
-          IconButton(
-            icon: Icon(
-              Icons.repeat,
-              color: audioProvider.isRepeat
-                  ? Theme.of(context).primaryColor
-                  : null,
-            ),
-            onPressed: audioProvider.toggleRepeat,
+
+          // Next button with repeat
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.skip_next),
+                iconSize: 48,
+                onPressed: audioProvider.playNext,
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.repeat,
+                  color: audioProvider.isRepeat
+                      ? Theme.of(context).primaryColor
+                      : Theme.of(context).iconTheme.color,
+                ),
+                onPressed: audioProvider.toggleRepeat,
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.timer),
-            onPressed: () => _showSleepTimerDialog(context),
-          ),
+        ],
+      ),
+    );
+  }
+
+  /*Widget _buildVolumeControl(BuildContext context, AudioProvider audioProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
           IconButton(
             icon: const Icon(Icons.volume_up),
             onPressed: () => _showVolumeDialog(context),
@@ -222,53 +254,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ],
       ),
     );
-  }
+  }*/
 
   void _showSleepTimerDialog(BuildContext context) {
-    final audioProvider = context.read<AudioProvider>();
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sleep Timer'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                audioProvider.setSleepTimer(10);
-                Navigator.pop(context);
-              },
-              child: const Text('10 minutes'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                audioProvider.setSleepTimer(30);
-                Navigator.pop(context);
-              },
-              child: const Text('30 minutes'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                audioProvider.setSleepTimer(60);
-                Navigator.pop(context);
-              },
-              child: const Text('1 hour'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                audioProvider.cancelSleepTimer();
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel Timer'),
-            ),
-          ],
-        ),
-      ),
+      builder: (context) => const SleepTimerDialog(),
     );
   }
 
-  void _showVolumeDialog(BuildContext context) {
+  /*void _showVolumeDialog(BuildContext context) {
     final audioProvider = context.read<AudioProvider>();
 
     showDialog(
@@ -287,7 +282,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
-  }
+  }*/
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');

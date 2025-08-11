@@ -13,6 +13,7 @@ import '../utils/audio_scanner.dart';
 import 'player_screen.dart';
 import 'search_screen.dart';
 import 'playlist_screen.dart';
+import 'albums_screen.dart'; // Import the new AlbumsScreen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +22,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   int _currentIndex = 0;
   bool _isScanning = false;
   int _scannedFiles = 0;
@@ -30,7 +32,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this); // Updated to 4 tabs
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _currentIndex = _tabController.index;
+        });
+      }
+    });
     _scanSongs();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _scanSongs() async {
@@ -74,19 +90,16 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const PlayerScreen(), // Remove the key to allow normal rebuild
+        builder: (context) => const PlayerScreen(),
       ),
     );
   }
 
-  // Add this method to your HomeScreen or wherever you scan for songs
   Future<void> _requestPermissionsAndScan() async {
     if (Platform.isAndroid) {
-      // Check Android version
       if (await Permission.storage.isDenied) {
         var status = await Permission.storage.request();
 
-        // For Android 11+, also request manage external storage
         if (status != PermissionStatus.granted) {
           if (await Permission.manageExternalStorage.isDenied) {
             status = await Permission.manageExternalStorage.request();
@@ -94,19 +107,16 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (status != PermissionStatus.granted) {
-          // Show dialog explaining why permission is needed
           _showPermissionDialog();
           return;
         }
       }
     }
 
-    // Scan for songs after permission is granted
     _scanSongs();
   }
 
   void _showPermissionDialog() {
-    // Show a dialog explaining why storage permission is needed
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -178,44 +188,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          _buildTab('Songs', 0),
-          _buildTab('Recently Played', 1),
-          _buildTab('Playlists', 2),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        indicatorColor: Theme.of(context).primaryColor,
+        labelColor: Theme.of(context).primaryColor,
+        unselectedLabelColor: Theme.of(context).textTheme.bodyLarge?.color,
+        tabs: const [
+          Tab(text: 'Songs'),
+          Tab(text: 'Recently Played'),
+          Tab(text: 'Albums'),
+          Tab(text: 'Playlists'),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTab(String title, int index) {
-    final isSelected = _currentIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
-        child: Container(
-          color: Colors.transparent,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected
-                      ? Theme.of(context).primaryColor
-                      : Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              if (isSelected)
-                Container(
-                  height: 2,
-                  width: 40,
-                  color: Theme.of(context).primaryColor,
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -237,18 +221,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final audioProvider = context.watch<AudioProvider>();
-
-    switch (_currentIndex) {
-      case 0:
-        return _buildSongsList(audioProvider.songs);
-      case 1:
-        return _buildSongsList(audioProvider.recentlyPlayed);
-      case 2:
-        return const PlaylistScreen();
-      default:
-        return _buildSongsList(audioProvider.songs);
-    }
+    return TabBarView(
+      controller: _tabController,
+      physics: const AlwaysScrollableScrollPhysics(), // Enable swipe
+      children: [
+        _buildSongsList(context.watch<AudioProvider>().songs),
+        _buildSongsList(context.watch<AudioProvider>().recentlyPlayed),
+        const AlbumsScreen(),
+        const PlaylistScreen(),
+      ],
+    );
   }
 
   Widget _buildSongsList(List<dynamic> songs) {
