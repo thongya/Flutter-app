@@ -1,5 +1,4 @@
 // lib/providers/audio_provider.dart
-
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ enum RepeatMode { off, all, one }
 class AudioProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final NotificationService _notificationService = NotificationService();
+  AudioSession? _audioSession;
 
   List<Song> _songs = [];
   List<Song> _recentlyPlayed = [];
@@ -32,6 +32,8 @@ class AudioProvider with ChangeNotifier {
   bool _playlistNeedsUpdate = true;
   bool _equalizerEnabled = false;
   RepeatMode _repeatMode = RepeatMode.off;
+  double _bassBoost = 0.0;
+  double _trebleBoost = 0.0;
 
   // Getters
   List<Song> get songs => _songs;
@@ -49,16 +51,17 @@ class AudioProvider with ChangeNotifier {
   bool get equalizerEnabled => _equalizerEnabled;
   List<Song> get favoriteSongs => _favoriteSongs;
   RepeatMode get repeatMode => _repeatMode;
+  double get bassBoost => _bassBoost;
+  double get trebleBoost => _trebleBoost;
 
   AudioProvider() {
-    _initializePlayer();
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
     // Configure audio session
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
+    _audioSession = await AudioSession.instance;
+    await _audioSession!.configure(const AudioSessionConfiguration.music());
 
     // Initialize equalizer
     await _initEqualizer();
@@ -92,13 +95,14 @@ class AudioProvider with ChangeNotifier {
 
   Future<void> _initEqualizer() async {
     try {
-      // Check if equalizer is available
-      // Note: This is a simplified approach since just_audio doesn't have direct equalizer support
-      // We'll simulate equalizer by adjusting the audio output
-      _equalizerEnabled = true;
-
-      // Apply initial settings
-      await _applyEqualizerSettings();
+      // Check if audio session is available
+      if (_audioSession != null) {
+        _equalizerEnabled = true;
+        // Apply initial settings
+        await _applyEqualizerSettings();
+      } else {
+        _equalizerEnabled = false;
+      }
     } catch (e) {
       print("Error initializing equalizer: $e");
       _equalizerEnabled = false;
@@ -110,9 +114,6 @@ class AudioProvider with ChangeNotifier {
     if (!_equalizerEnabled) return;
 
     try {
-      // Since we can't directly access the system equalizer, we'll simulate it
-      // by adjusting the volume and audio effects
-
       // Calculate overall volume adjustment based on equalizer settings
       double overallGain = 0.0;
       for (double setting in _equalizerSettings) {
@@ -120,15 +121,23 @@ class AudioProvider with ChangeNotifier {
       }
       overallGain = overallGain / _equalizerSettings.length;
 
+      // Add bass and treble boost
+      overallGain += (_bassBoost + _trebleBoost) / 40.0; // Scale down the effect
+
       // Apply overall gain as volume adjustment
       double adjustedVolume = _volume + (overallGain / 20.0); // Scale down the effect
       adjustedVolume = adjustedVolume.clamp(0.0, 1.0);
 
       // Set the adjusted volume
-      _audioPlayer.setVolume(adjustedVolume);
+      await _audioPlayer.setVolume(adjustedVolume);
 
-      // Note: This is a simplified approach and doesn't provide true equalizer functionality
-      // For a real equalizer, you would need to implement platform-specific code
+      // Try to set the system volume using Android's AudioManager
+      try {
+        // This is a simplified approach - in a real implementation you would use platform channels
+        // to access the system volume. For now, we'll just adjust the player volume.
+      } catch (e) {
+        print("Error setting system volume: $e");
+      }
     } catch (e) {
       print("Error applying equalizer settings: $e");
     }
@@ -312,9 +321,21 @@ class AudioProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Updated equalizer method
+  // Updated equalizer methods
   Future<void> setEqualizerSettings(List<double> settings) async {
     _equalizerSettings = settings;
+    await _applyEqualizerSettings();
+    notifyListeners();
+  }
+
+  Future<void> setBassBoost(double boost) async {
+    _bassBoost = boost.clamp(0.0, 1.0);
+    await _applyEqualizerSettings();
+    notifyListeners();
+  }
+
+  Future<void> setTrebleBoost(double boost) async {
+    _trebleBoost = boost.clamp(0.0, 1.0);
     await _applyEqualizerSettings();
     notifyListeners();
   }

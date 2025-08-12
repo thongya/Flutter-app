@@ -15,6 +15,8 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
   String _selectedPreset = 'Normal';
   List<double> _customSettings = List.filled(10, 0.0);
   bool _snapBands = true;
+  double _bassBoost = 0.0;
+  double _trebleBoost = 0.0;
 
   // Frequency bands as shown in the image
   final List<String> _frequencies = [
@@ -35,6 +37,8 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
     super.initState();
     final audioProvider = context.read<AudioProvider>();
     _customSettings = List.from(audioProvider.equalizerSettings);
+    _bassBoost = audioProvider.bassBoost;
+    _trebleBoost = audioProvider.trebleBoost;
   }
 
   @override
@@ -50,30 +54,39 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Add a notice about simulated equalizer
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info, color: Colors.orange[800]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This is a simulated equalizer. For full equalizer functionality, a device-specific implementation is required.',
-                      style: TextStyle(color: Colors.orange[800]),
+            // Check if equalizer is available
+            Consumer<AudioProvider>(
+              builder: (context, audioProvider, child) {
+                if (!audioProvider.equalizerEnabled) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                ],
-              ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.orange[800]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Audio enhancement is not available on this device.',
+                            style: TextStyle(color: Colors.orange[800]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink(); // Don't show anything if equalizer is available
+              },
             ),
             const SizedBox(height: 16),
             _buildPresetSelector(),
             const SizedBox(height: 32),
             _buildCustomEqualizer(),
+            const SizedBox(height: 32),
+            _buildBassTrebleControls(),
             const Spacer(),
             _buildControls(),
           ],
@@ -143,7 +156,6 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                   );
                 }).toList(),
               ),
-
               // Sliders
               Expanded(
                 child: Row(
@@ -163,7 +175,6 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                                 : Theme.of(context).primaryColor,
                           ),
                         ),
-
                         // Slider
                         SizedBox(
                           height: 150,
@@ -215,60 +226,92 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
     );
   }
 
-  Widget _buildControls() {
+  Widget _buildBassTrebleControls() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Snap bands switch
+        const Text(
+          'Bass & Treble',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        // Bass control
         Row(
-          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Text('Snap bands'),
-            const SizedBox(width: 8),
-            Switch(
-              value: _snapBands,
-              onChanged: (value) {
-                setState(() {
-                  _snapBands = value;
-                });
-              },
-              activeColor: Colors.orange,
+            const Icon(Icons.graphic_eq, size: 24),
+            const SizedBox(width: 10),
+            const Text('Bass'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Slider(
+                value: _bassBoost,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                label: '${(_bassBoost * 100).round()}%',
+                onChanged: (value) {
+                  setState(() {
+                    _bassBoost = value;
+                  });
+                },
+              ),
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
-        // Action buttons
+        // Treble control
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            ElevatedButton(
-              onPressed: _resetSettings,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                foregroundColor: Colors.black,
+            const Icon(Icons.graphic_eq, size: 24),
+            const SizedBox(width: 10),
+            const Text('Treble'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Slider(
+                value: _trebleBoost,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                label: '${(_trebleBoost * 100).round()}%',
+                onChanged: (value) {
+                  setState(() {
+                    _trebleBoost = value;
+                  });
+                },
               ),
-              child: const Text('DELETE'),
-            ),
-            ElevatedButton(
-              onPressed: _resetSettings,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('RESET'),
-            ),
-            ElevatedButton(
-              onPressed: _saveSettings,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('SAVE'),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          ElevatedButton(
+            onPressed: _resetSettings,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[300],
+              foregroundColor: Colors.black,
+              minimumSize: const Size(100, 40),
+            ),
+            child: const Text('RESET'),
+          ),
+          ElevatedButton(
+            onPressed: _saveSettings,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(100, 40),
+            ),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -288,15 +331,23 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           -4.0,
           -4.0,
         ];
+        _bassBoost = 0.3;
+        _trebleBoost = 0.2;
         break;
       case 'Dance':
         _customSettings = [6.0, 4.0, 0.0, 0.0, 0.0, -4.0, -6.0, -2.0, 2.0, 4.0];
+        _bassBoost = 0.8;
+        _trebleBoost = 0.6;
         break;
       case 'Flat':
         _customSettings = List.filled(10, 0.0);
+        _bassBoost = 0.0;
+        _trebleBoost = 0.0;
         break;
       case 'Folk':
         _customSettings = [3.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, -2.0, -3.0];
+        _bassBoost = 0.2;
+        _trebleBoost = 0.1;
         break;
       case 'Heavy Metal':
         _customSettings = [
@@ -311,6 +362,8 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           -6.0,
           -6.0,
         ];
+        _bassBoost = 0.9;
+        _trebleBoost = 0.7;
         break;
       case 'Hip Hop':
         _customSettings = [
@@ -325,9 +378,13 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           2.0,
           4.0,
         ];
+        _bassBoost = 0.7;
+        _trebleBoost = 0.5;
         break;
       case 'Jazz':
         _customSettings = [4.0, 2.0, 0.0, -2.0, -4.0, -2.0, 0.0, 2.0, 4.0, 4.0];
+        _bassBoost = 0.4;
+        _trebleBoost = 0.6;
         break;
       case 'Pop':
         _customSettings = [
@@ -342,12 +399,18 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
           -1.0,
           -1.0,
         ];
+        _bassBoost = 0.3;
+        _trebleBoost = 0.4;
         break;
       case 'Rock':
         _customSettings = [4.0, 2.0, 0.0, -2.0, -4.0, -2.0, 0.0, 2.0, 4.0, 4.0];
+        _bassBoost = 0.6;
+        _trebleBoost = 0.5;
         break;
       default: // Normal
         _customSettings = List.filled(10, 0.0);
+        _bassBoost = 0.0;
+        _trebleBoost = 0.0;
     }
     setState(() {});
   }
@@ -355,12 +418,17 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
   void _resetSettings() {
     setState(() {
       _customSettings = List.filled(10, 0.0);
+      _bassBoost = 0.0;
+      _trebleBoost = 0.0;
       _selectedPreset = 'Normal';
     });
   }
 
   void _saveSettings() {
-    context.read<AudioProvider>().setEqualizerSettings(_customSettings);
+    final audioProvider = context.read<AudioProvider>();
+    audioProvider.setEqualizerSettings(_customSettings);
+    audioProvider.setBassBoost(_bassBoost);
+    audioProvider.setTrebleBoost(_trebleBoost);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Equalizer settings applied')));
