@@ -24,6 +24,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Add favorite icon
+          Consumer<AudioProvider>(
+            builder: (context, audioProvider, child) {
+              final currentSong = audioProvider.currentSong;
+              return IconButton(
+                icon: Icon(
+                  currentSong?.isFavorite == true
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: currentSong?.isFavorite == true ? Colors.red : null,
+                ),
+                onPressed: () {
+                  if (currentSong != null) {
+                    audioProvider.toggleFavorite(currentSong);
+                  }
+                },
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.equalizer),
             onPressed: () {
@@ -44,11 +63,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       body: Consumer<AudioProvider>(
         builder: (context, audioProvider, child) {
           final currentSong = audioProvider.currentSong;
-
           if (currentSong == null) {
             return const Center(child: Text('No song selected'));
           }
-
           return Column(
             children: [
               _buildAlbumArt(context, currentSong),
@@ -207,7 +224,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ],
           ),
-
           // Play/Pause button
           IconButton(
             icon: Icon(
@@ -216,7 +232,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
             iconSize: 64,
             onPressed: audioProvider.togglePlayPause,
           ),
-
           // Next button with repeat
           Row(
             children: [
@@ -227,10 +242,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               IconButton(
                 icon: Icon(
-                  Icons.repeat,
-                  color: audioProvider.isRepeat
-                      ? Theme.of(context).primaryColor
-                      : Theme.of(context).iconTheme.color,
+                  _getRepeatIcon(audioProvider.repeatMode),
+                  color: _getRepeatIconColor(audioProvider.repeatMode, context),
                 ),
                 onPressed: audioProvider.toggleRepeat,
               ),
@@ -241,20 +254,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  /*Widget _buildVolumeControl(BuildContext context, AudioProvider audioProvider) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.volume_up),
-            onPressed: () => _showVolumeDialog(context),
-          ),
-        ],
-      ),
-    );
-  }*/
+  // Helper method to get the correct repeat icon
+  IconData _getRepeatIcon(RepeatMode repeatMode) {
+    switch (repeatMode) {
+      case RepeatMode.off:
+        return Icons.repeat;
+      case RepeatMode.all:
+        return Icons.repeat;
+      case RepeatMode.one:
+        return Icons.repeat_one;
+    }
+  }
+
+  // Helper method to get the correct repeat icon color
+  Color _getRepeatIconColor(RepeatMode repeatMode, BuildContext context) {
+    switch (repeatMode) {
+      case RepeatMode.off:
+        return Theme.of(context).iconTheme.color ?? Colors.grey;
+      case RepeatMode.all:
+      case RepeatMode.one:
+        return Theme.of(context).primaryColor;
+    }
+  }
 
   void _showSleepTimerDialog(BuildContext context) {
     showDialog(
@@ -262,27 +283,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       builder: (context) => const SleepTimerDialog(),
     );
   }
-
-  /*void _showVolumeDialog(BuildContext context) {
-    final audioProvider = context.read<AudioProvider>();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Volume'),
-        content: Slider(
-          value: audioProvider.volume,
-          min: 0.0,
-          max: 1.0,
-          divisions: 10,
-          label: '${(audioProvider.volume * 100).round()}%',
-          onChanged: (value) {
-            audioProvider.setVolume(value);
-          },
-        ),
-      ),
-    );
-  }*/
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');

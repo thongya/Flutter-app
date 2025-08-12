@@ -1,9 +1,8 @@
 // lib/screens/home_screen.dart
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import '../models/song_model.dart';
 import '../providers/audio_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/custom_app_bar.dart';
@@ -13,7 +12,7 @@ import '../utils/audio_scanner.dart';
 import 'player_screen.dart';
 import 'search_screen.dart';
 import 'playlist_screen.dart';
-import 'albums_screen.dart'; // Import the new AlbumsScreen
+import 'albums_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this); // Updated to 4 tabs
+    _tabController = TabController(length: 5, vsync: this); // Make sure this matches the number of tabs
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {
@@ -82,8 +81,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _onSongTap(int index) {
     final audioProvider = context.read<AudioProvider>();
-
-    // Play the selected song
     audioProvider.playSong(index);
 
     // Use push instead of pushReplacement to avoid navigation issues
@@ -95,53 +92,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Future<void> _requestPermissionsAndScan() async {
-    if (Platform.isAndroid) {
-      if (await Permission.storage.isDenied) {
-        var status = await Permission.storage.request();
-
-        if (status != PermissionStatus.granted) {
-          if (await Permission.manageExternalStorage.isDenied) {
-            status = await Permission.manageExternalStorage.request();
-          }
-        }
-
-        if (status != PermissionStatus.granted) {
-          _showPermissionDialog();
-          return;
-        }
-      }
+  void _showErrorSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
-
-    _scanSongs();
-  }
-
-  void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permission Required'),
-        content: const Text('This app needs storage permission to access your music files.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            child: const Text('Settings'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final audioProvider = context.watch<AudioProvider>();
     final themeProvider = context.watch<ThemeProvider>();
 
     return Scaffold(
@@ -199,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           Tab(text: 'Recently Played'),
           Tab(text: 'Albums'),
           Tab(text: 'Playlists'),
+          Tab(text: 'Favorites'), // Make sure this tab is included
         ],
       ),
     );
@@ -229,11 +190,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         _buildSongsList(context.watch<AudioProvider>().recentlyPlayed),
         const AlbumsScreen(),
         const PlaylistScreen(),
+        _buildSongsList(context.watch<AudioProvider>().favoriteSongs), // Add Favorites tab content
       ],
     );
   }
 
-  Widget _buildSongsList(List<dynamic> songs) {
+  Widget _buildSongsList(List<Song> songs) {
     if (songs.isEmpty && !_isScanning) {
       return Center(
         child: Column(

@@ -7,6 +7,7 @@ class Song {
   final String path;
   final int duration;
   final String? albumArt;
+  final bool isFavorite; // Add this field
 
   Song({
     required this.id,
@@ -16,6 +17,7 @@ class Song {
     required this.path,
     required this.duration,
     this.albumArt,
+    this.isFavorite = false, // Default to false
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,7 @@ class Song {
       path: json['path'] as String,
       duration: json['duration'] as int,
       albumArt: json['albumArt'] as String?,
+      isFavorite: json['isFavorite'] as bool? ?? false, // Handle null
     );
   }
 
@@ -39,6 +42,30 @@ class Song {
       'path': path,
       'duration': duration,
       'albumArt': albumArt,
+      'isFavorite': isFavorite,
     };
+  }
+
+  // Add a copyWith method for updating favorite status
+  Song copyWith({
+    String? id,
+    String? title,
+    String? artist,
+    String? album,
+    String? path,
+    int? duration,
+    String? albumArt,
+    bool? isFavorite,
+  }) {
+    return Song(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      album: album ?? this.album,
+      path: path ?? this.path,
+      duration: duration ?? this.duration,
+      albumArt: albumArt ?? this.albumArt,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
   }
 }

@@ -8,51 +8,42 @@ import '../providers/audio_provider.dart';
 class SongTile extends StatelessWidget {
   final Song song;
   final VoidCallback onTap;
-  final int index; // Add this line
+  final int index;
 
   const SongTile({
     Key? key,
     required this.song,
     required this.onTap,
-    required this.index, // Add this line
+    required this.index,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final audioProvider = context.watch<AudioProvider>();
-    final isCurrentlyPlaying = audioProvider.currentSong?.id == song.id && audioProvider.isPlaying;
 
     return ListTile(
-      leading: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: isCurrentlyPlaying
-            ? Icon(
-          Icons.play_arrow,
-          color: Theme.of(context).primaryColor,
-          size: 24,
-        )
-            : Icon(
-          Icons.music_note,
-          color: Theme.of(context).primaryColor,
-        ),
+      leading: CircleAvatar(
+        backgroundImage: song.albumArt != null ? NetworkImage(song.albumArt!) : null,
+        child: song.albumArt == null ? const Icon(Icons.music_note) : null,
       ),
       title: Text(
         song.title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontWeight: isCurrentlyPlaying ? FontWeight.bold : FontWeight.normal,
-        ),
       ),
       subtitle: Text(
-        '${song.artist} • ${song.album}',
+        song.artist,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
+      ),
+      trailing: IconButton(
+        icon: Icon(
+          song.isFavorite ? Icons.favorite : Icons.favorite_border,
+          color: song.isFavorite ? Colors.red : null,
+        ),
+        onPressed: () {
+          audioProvider.toggleFavorite(song);
+        },
       ),
       onTap: onTap,
     );

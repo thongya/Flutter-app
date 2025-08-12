@@ -17,63 +17,99 @@ class BottomPlayer extends StatelessWidget {
     }
 
     return Container(
-      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
       child: Row(
         children: [
-          Expanded(
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  Icons.music_note,
-                  size: 20,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
-              title: Text(
-                audioProvider.currentSong!.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14),
-              ),
-              subtitle: Text(
-                audioProvider.currentSong!.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PlayerScreen()),
-                );
-              },
+          // Album art
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: audioProvider.currentSong?.albumArt != null
+                  ? Image.network(
+                audioProvider.currentSong!.albumArt!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.music_note),
+              )
+                  : const Icon(Icons.music_note),
             ),
           ),
-          IconButton(
-            icon: Icon(
-              audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
+          const SizedBox(width: 12),
+          // Song info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  audioProvider.currentSong?.title ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                Text(
+                  audioProvider.currentSong?.artist ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-            onPressed: audioProvider.togglePlayPause,
+          ),
+          // Controls
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
+                ),
+                onPressed: audioProvider.togglePlayPause,
+              ),
+              IconButton(
+                icon: Icon(_getRepeatIcon(audioProvider.repeatMode),
+                color: _getRepeatIconColor(audioProvider.repeatMode, context),
+
+              ), onPressed: audioProvider.toggleRepeat,
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  // Helper method to get the correct repeat icon
+  IconData _getRepeatIcon(RepeatMode repeatMode) {
+    switch (repeatMode) {
+      case RepeatMode.off:
+        return Icons.repeat;
+      case RepeatMode.all:
+        return Icons.repeat;
+      case RepeatMode.one:
+        return Icons.repeat_one;
+    }
+  }
+
+  // Helper method to get the correct repeat icon color
+  Color _getRepeatIconColor(RepeatMode repeatMode, BuildContext context) {
+    switch (repeatMode) {
+      case RepeatMode.off:
+        return Theme.of(context).iconTheme.color ?? Colors.grey;
+      case RepeatMode.all:
+      case RepeatMode.one:
+        return Theme.of(context).primaryColor;
+    }
   }
 }
